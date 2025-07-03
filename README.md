@@ -45,3 +45,7 @@ You can do three types of operations – add, remove, and swap.
 ```python3 proxy.py removestake --help```
 
 ```python3 proxy.py swapstake --help```
+
+# Buy me a coffee!
+
+Just follow me on GitHub and star this repo. Thank you!
