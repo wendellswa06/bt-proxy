@@ -1,6 +1,6 @@
 # Overview
 
-Proxy for Bittensor Staking
+Proxy for Bittensor Staking - Ensuring 100% confidence and security for Subnet alpha token traders
 
 # How to use
 
