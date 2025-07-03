@@ -70,10 +70,9 @@ def main():
     network = os.getenv('NETWORK')
     delegator = os.getenv('DELEGATOR')
     proxy_wallet = os.getenv('PROXY_WALLET')
-    proxy_hotkey = os.getenv('PROXY_HOTKEY')
     
     # Validate environment variables
-    if not network or not delegator or not proxy_wallet or not proxy_hotkey:
+    if not network or not delegator or not proxy_wallet:
         print("Error: Missing environment variables")
         sys.exit(1)
 
@@ -96,7 +95,11 @@ def main():
         sys.exit(1)
         
     # Initialize RonProxy object
-    ron_proxy = RonProxy(proxy_wallet, proxy_hotkey, network, delegator)
+    ron_proxy = RonProxy(
+        proxy_wallet=proxy_wallet,
+        network=network,
+        delegator=delegator,
+    )
     print(f"Initialized RonProxy object for {network} network")
     
     try:

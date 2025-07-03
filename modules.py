@@ -9,13 +9,12 @@ RPC_ENDPOINTS = {
 }
 
 class RonProxy:
-    def __init__(self, proxy_wallet: str, proxy_hotkey: str, network: str, delegator: str):
+    def __init__(self, proxy_wallet: str, network: str, delegator: str):
         """
         Initialize the RonProxy object.
         
         Args:
             proxy_wallet: Proxy wallet address
-            proxy_hotkey: Proxy hotkey address
             network: Network name
             delegator: Delegator address
         """
@@ -24,7 +23,7 @@ class RonProxy:
         
         self.network = network
         self.delegator = delegator
-        self.proxy_wallet = bt.wallet(name=proxy_wallet, hotkey=proxy_hotkey)
+        self.proxy_wallet = bt.wallet(name=proxy_wallet)
         self.subtensor = bt.subtensor(network=network)
         self.substrate = SubstrateInterface(
             url=RPC_ENDPOINTS[self.network],
