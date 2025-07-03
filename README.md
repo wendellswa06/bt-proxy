@@ -14,6 +14,8 @@ Proxy for Bittensor Staking
 
 ```source .venv/bin/activate```
 
+```pip3 install -r requirements.txt```
+
 ## Add proxy
 
 You need to add proxy to your delegator address.
