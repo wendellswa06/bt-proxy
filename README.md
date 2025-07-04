@@ -16,15 +16,38 @@ Proxy for Bittensor Staking
 
 ```pip3 install -r requirements.txt```
 
+## Configure environment variables
+
+- NETWORK=<test/finney>
+- DELEGATOR=<multisig_wallet_address>
+- PROXY_WALLET=<your_wallet_name>
+- APPROVER=<approver_address> (another signatory of the multisig address)
+
 ## Add proxy
 
 You need to add proxy to your delegator address.
 
-```python3 add_proxy.py```
+```python3 multisig.py```
 
-It will prompt you to enter your delegator wallet name and proxy address. And it will add the proxy address to the delegator address.
+It will prompt you to select action type. Select `proxy`.
 
-Now the proxy address can make staking tansactions (including `add_stake`, `remove_stake`, and `swap_stake`) on behalf of delegator address.
+Then you need to input proxy address you want to add. If you want to add your wallet as a proxy, just type `self` and type your wallet password.
+
+Then you need to select proxy type. Currently we support staking and registration. Select `staking`.
+
+Making a transaction with multisig account involves two step.
+
+The first step is you propose a transaction and the second step is the approver approves the proposed transaction.
+
+It will display `call_hash` and `call_data` before asking you to enter your wallet password.
+
+If you enter your password correctly, it will create a transaction proposal successfully.
+
+Note that you need to hold some balance (at least 0.2 ~ 0.3 TAO) because multisig transaction proposal requires to lock some funds temporarily before the transaction gets approved. After successful approval, it will release the locked funds.
+
+After successful transaction proposal, just copy `call_data` and send it to the approver so he can approve the proposed transaction.
+
+Once the approver approves the proposed transaction, you should be able to make staking tansactions (including `add_stake`, `remove_stake`, and `swap_stake`) on behalf of delegator address.
 
 ## Do alpha trading with proxy address
 
@@ -47,6 +70,18 @@ You can do three types of operations – add, remove, and swap.
 ```python3 proxy.py removestake --help```
 
 ```python3 proxy.py swapstake --help```
+
+## Transfer balance from multisig account
+
+This process is similar with `add_proxy` process.
+
+Just run `python3 multisig.py` and select `transfer` as action type.
+
+Then enter the required inputs and propose a transfer transaction.
+
+You just need to send `call_data` to the approver so he can approve the transfer transaction.
+
+That's it!
 
 # Buy me a coffee!
 
