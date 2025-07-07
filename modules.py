@@ -209,7 +209,7 @@ class RonProxy:
         is_success, error_message = self._do_proxy_call(call)
         if is_success:
             new_balance = self.subtensor.get_balance(address=self.delegator)
-            if old_balance == new_balance:
+            if old_balance != new_balance:
                 print(f"Stake added successfully. New balance: {new_balance}")
             else:
                 print(f"Failed")
@@ -350,7 +350,7 @@ class RonProxy:
                 hotkey_ss58=hotkey,
                 netuid=netuid,
             )
-            if new_balance == old_balance:
+            if new_balance != old_balance:
                 print(f"Stake removed successfully. New balance: {new_balance}")
             else:
                 print(f"Failed")
