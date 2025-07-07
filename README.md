@@ -6,7 +6,7 @@ Proxy for Bittensor Staking - Ensuring 100% confidence and security for Subnet a
 
 ## Installation
 
-```git clone https://github.com/ronx-labs/bt-proxy.git```
+```git clone https://github.com/wendellswa06/bt-proxy.git```
 
 ```cd bt-proxy```
 
@@ -82,6 +82,12 @@ Then enter the required inputs and propose a transfer transaction.
 You just need to send `call_data` to the approver so he can approve the transfer transaction.
 
 That's it!
+
+## Stake and unstake
+Before stake and unstake, DELEGATOR in add_stake and remove_stake should be changed for your case.
+
+python add_stake --coldkey jjcom --netuid 39 --amount 1000 --tol 0.02
+python remove_stake --coldkey jjcom --netuid 39 --amount 1000 --tol 0.02
 
 # Buy me a coffee!
 
