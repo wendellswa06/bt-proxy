@@ -32,7 +32,7 @@ class RonProxy:
         )
 
 
-    def add_stake(self, netuid: int, hotkey: str, amount: Balance) -> None:
+    def _add_stake(self, netuid: int, hotkey: str, amount: Balance) -> None:
         """
         Add stake to a subnet.
         
@@ -66,9 +66,108 @@ class RonProxy:
             print(f"Stake added successfully")
         else:
             print(f"Error: {error_message}")
+    
+    def _calculate_slippage(
+        self, subnet_info, amount: Balance, stake_fee: Balance
+    ) -> tuple[Balance, str, float, str]:
+        """Calculate slippage when adding stake.
 
+        Args:
+            subnet_info: Subnet dynamic info
+            amount: Amount being staked
+            stake_fee: Transaction fee for the stake operation
 
-    def remove_stake(self, netuid: int, hotkey: str, amount: Balance,
+        Returns:
+            tuple containing:
+            - received_amount: Amount received after slippage and fees
+            - slippage_str: Formatted slippage percentage string
+            - slippage_float: Raw slippage percentage value
+            - rate: Exchange rate string
+        """
+        amount_after_fee = amount - stake_fee
+        
+        if amount_after_fee < 0:
+            print_error("You don't have enough balance to cover the stake fee.")
+            raise ValueError()
+        received_amount, _ = subnet_info.tao_to_alpha_with_slippage(amount_after_fee)
+        print(received_amount)
+        if subnet_info.is_dynamic:
+            ideal_amount = subnet_info.tao_to_alpha(amount)
+            total_slippage = ideal_amount - received_amount
+            slippage_pct_float = 100 * (total_slippage.tao / ideal_amount.tao)
+            slippage_str = f"{slippage_pct_float:.4f} %"
+            rate = f"{(1 / subnet_info.price.tao or 1):.4f}"
+        else:
+            slippage_pct_float = (
+                100 * float(stake_fee.tao) / float(amount.tao) if amount.tao != 0 else 0
+            )
+            slippage_str = f"{slippage_pct_float:.4f} %"
+            rate = "1"
+
+        return received_amount, slippage_str, slippage_pct_float, rate
+
+    def add_stake(self, wallet: str, netuid: int, hotkey: str, amount: Balance, tolerance: float) -> None:
+        """
+        Add stake to a subnet.
+        
+        Args:
+            netuid: Network/subnet ID
+            hotkey: Hotkey address
+            amount: Amount to stake
+        """
+        allow_partial_stake = False
+        balance = self.subtensor.get_balance(
+            address=self.delegator,
+        )
+        
+        stake_fee = self.subtensor.get_stake_add_fee(
+            amount,
+            netuid,
+            self.delegator,
+            hotkey
+        )
+        subnet_info = self.subtensor.all_subnets()[netuid]
+        received_amount, slippage_pct, slippage_pct_float, rate = (
+            self._calculate_slippage(subnet_info, amount, stake_fee)
+        )
+        
+        pool = self.subtensor.subnet(netuid=netuid)
+        base_price = pool.price.rao
+        price_with_tolerance = base_price * (1 + tolerance)
+        
+        if tolerance * 100 < slippage_pct_float:
+            tolerance = slippage_pct_float / 100 * 1.5
+            print(f"New-Tolerance: {tolerance}")
+        print(f"----validator to delegate to: {hotkey}")
+        print(f"----Current balance: {balance}")
+        print(f"----price: {base_price/100000}")
+        print(f"----rao amount to stake: {amount.rao}")
+        print(f"----slippage: {tolerance}")
+        
+        # calculate base slippage
+        print(wallet)
+        
+        
+        print(f"💢💢💢💢💢Base Slippage: {slippage_pct}")
+        
+        call = self.substrate.compose_call(
+            call_module='SubtensorModule',
+            call_function='add_stake_limit',
+            call_params={
+                'hotkey': hotkey,
+                'netuid': netuid,
+                'amount_staked': amount.rao,
+                "limit_price": price_with_tolerance,
+                "allow_partial": allow_partial_stake,
+            }
+        )
+        is_success, error_message = self._do_proxy_call(call)
+        if is_success:
+            print(f"Stake added successfully")
+        else:
+            print(f"Error: {error_message}")
+
+    def _remove_stake(self, netuid: int, hotkey: str, amount: Balance,
                     all: bool = False) -> None:
         """
         Remove stake from a subnet.
@@ -110,6 +209,61 @@ class RonProxy:
                 'hotkey': hotkey,
                 'netuid': netuid,
                 'amount_unstaked': amount.rao - 1,
+            }
+        )
+        is_success, error_message = self._do_proxy_call(call)
+        if is_success:
+            print(f"Stake removed successfully")
+        else:
+            print(f"Error: {error_message}")
+
+    def remove_stake(self, wallet: str, netuid: int, hotkey: str, amount: Balance, tolerance: float,
+                    all: bool = False) -> None:
+        """
+        Remove stake from a subnet.
+        
+        Args:
+            netuid: Network/subnet ID
+            hotkey: Hotkey address
+            amount: Amount to unstake (if not using --all)
+            all: Whether to unstake all available balance
+        """
+        balance = self.subtensor.get_stake(
+            coldkey_ss58=self.delegator,
+            hotkey_ss58=hotkey,
+            netuid=netuid,
+        )
+        print(f"----Current alpha balance: {balance}")
+
+        print(f"----rao amount to unstake: {amount.rao}")
+        print(f"----slippage: {tolerance}")
+        print(f"----validator to delegate to: {hotkey}")
+        
+        if all:
+            confirm = input("Do you really want to unstake all available balance? (y/n)")
+            if confirm == "y":
+                amount = balance
+            else:
+                return
+        
+        if amount.rao > balance.rao:
+            print(f"Error: Amount to unstake is greater than current balance")
+            return
+
+        pool = self.subtensor.subnet(netuid=netuid)
+        base_price = pool.price.rao
+        price_with_tolerance = base_price * (1 - tolerance)
+        allow_partial_stake = False
+        
+        call = self.substrate.compose_call(
+            call_module='SubtensorModule',
+            call_function='remove_stake_limit',
+            call_params={
+                'hotkey': hotkey,
+                'netuid': netuid,
+                'amount_unstaked': amount.rao,
+                "limit_price": price_with_tolerance,
+                "allow_partial": allow_partial_stake,
             }
         )
         is_success, error_message = self._do_proxy_call(call)
