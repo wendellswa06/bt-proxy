@@ -2,6 +2,8 @@ import bittensor as bt
 from substrateinterface import SubstrateInterface
 from typing import Optional, cast
 from bittensor.utils.balance import Balance, FixedPoint, fixed_to_float
+from colorama import Fore, Style, init
+init()  # Initialize colorama
 
 RPC_ENDPOINTS = {
     'test': 'wss://test.finney.opentensor.ai:443',
@@ -67,7 +69,52 @@ class RonProxy:
         else:
             print(f"Error: {error_message}")
     
-    def _calculate_slippage(
+    def _calculate_slippage_remove(
+        self, subnet_info, amount: Balance, stake_fee: Balance
+    ) -> tuple[Balance, str, float]:
+        """Calculate slippage and received amount for unstaking operation.
+
+        Args:
+            subnet_info: Subnet information containing price data
+            amount: Amount being unstaked
+            stake_fee: Stake fee to include in slippage calculation
+
+        Returns:
+            tuple containing:
+            - received_amount: Balance after slippage deduction
+            - slippage_pct: Formatted string of slippage percentage
+            - slippage_pct_float: Float value of slippage percentage
+        """
+        received_amount, _ = subnet_info.alpha_to_tao_with_slippage(amount)
+        
+        received_amount -= stake_fee
+
+        if received_amount < Balance.from_tao(0):
+            print_error("Not enough Alpha to pay the transaction fee.")
+            raise ValueError
+
+        if subnet_info.is_dynamic:
+            # Ideal amount w/o slippage
+            ideal_amount = subnet_info.alpha_to_tao(amount)
+
+            # Total slippage including fees
+            total_slippage = ideal_amount - received_amount
+            slippage_pct_float = (
+                100 * (float(total_slippage.tao) / float(ideal_amount.tao))
+                if ideal_amount.tao != 0
+                else 0
+            )
+            slippage_pct = f"{slippage_pct_float:.4f} %"
+        else:
+            # Root will only have fee-based slippage
+            slippage_pct_float = (
+                100 * float(stake_fee.tao) / float(amount.tao) if amount.tao != 0 else 0
+            )
+            slippage_pct = f"{slippage_pct_float:.4f} %"
+
+        return received_amount, slippage_pct, slippage_pct_float
+
+    def _calculate_slippage_add(
         self, subnet_info, amount: Balance, stake_fee: Balance
     ) -> tuple[Balance, str, float, str]:
         """Calculate slippage when adding stake.
@@ -120,6 +167,7 @@ class RonProxy:
             address=self.delegator,
         )
         
+        # calculate base slippage
         stake_fee = self.subtensor.get_stake_add_fee(
             amount,
             netuid,
@@ -128,27 +176,24 @@ class RonProxy:
         )
         subnet_info = self.subtensor.all_subnets()[netuid]
         received_amount, slippage_pct, slippage_pct_float, rate = (
-            self._calculate_slippage(subnet_info, amount, stake_fee)
+            self._calculate_slippage_add(subnet_info, amount, stake_fee)
         )
         
         pool = self.subtensor.subnet(netuid=netuid)
         base_price = pool.price.rao
         price_with_tolerance = base_price * (1 + tolerance)
         original_tolerance = 0
+        if tolerance * 100 > slippage_pct_float * 5:
+            print(f"Too big slippage: {int(tolernace*100/slippage_pct_float)}")
         if tolerance * 100 < slippage_pct_float:
             original_tolerance = tolerance
             tolerance = slippage_pct_float / 100 * 1.5
         print(f"----validator to delegate to: {hotkey}")
         print(f"----Current balance: {balance}")
         print(f"----price: {base_price/100000}")
-        print(f"----rao amount to stake: {amount.rao}")
-        print(f"----slippage: {tolerance}")
-        
-        # calculate base slippage
-        print(wallet)
-        
-        
-        print(f"🚩🚩🚩🚩🚩🚩Base Slippage: {slippage_pct} | original: {original_tolerance} | new: {tolerance}")
+        print(f"----tao amount to stake: {amount}")
+
+        print(f"🚩🚩🚩🚩🚩🚩{Fore.YELLOW}Base Slippage: {Fore.CYAN}{slippage_pct}{Style.RESET_ALL} | {Fore.RED}original: {Fore.MAGENTA}{original_tolerance}{Style.RESET_ALL} | {Fore.GREEN}new: {Fore.BLUE}{tolerance}{Style.RESET_ALL}")
         
         call = self.substrate.compose_call(
             call_module='SubtensorModule',
@@ -228,13 +273,40 @@ class RonProxy:
             amount: Amount to unstake (if not using --all)
             all: Whether to unstake all available balance
         """
+        allow_partial_stake = False
+        
+        # calculate base slippage
+        unstake_fee = self.subtensor.get_unstake_fee(
+            amount,
+            netuid,
+            self.delegator,
+            hotkey
+        )
+        
+        print(unstake_fee)
+        subnet_info = self.subtensor.all_subnets()[netuid]
+        received_amount, slippage_pct, slippage_pct_float = (
+            self._calculate_slippage_remove(subnet_info, amount, unstake_fee)
+        )
+        
+        pool = self.subtensor.subnet(netuid=netuid)
+        base_price = pool.price.rao
+        price_with_tolerance = base_price * (1 - tolerance)
+        
+        original_tolerance = 0
+        if tolerance * 100 > slippage_pct_float * 5:
+            print(f"Too big slippage: {int(tolerance*100/slippage_pct_float)}")
+        if tolerance * 100 < slippage_pct_float:
+            original_tolerance = tolerance
+            tolerance = slippage_pct_float / 100 * 3
+        
+        # Current alpha balance
         balance = self.subtensor.get_stake(
             coldkey_ss58=self.delegator,
             hotkey_ss58=hotkey,
             netuid=netuid,
         )
         print(f"----Current alpha balance: {balance}")
-
         print(f"----rao amount to unstake: {amount.rao}")
         print(f"----slippage: {tolerance}")
         print(f"----validator to delegate to: {hotkey}")
@@ -250,10 +322,8 @@ class RonProxy:
             print(f"Error: Amount to unstake is greater than current balance")
             return
 
-        pool = self.subtensor.subnet(netuid=netuid)
-        base_price = pool.price.rao
-        price_with_tolerance = base_price * (1 - tolerance)
-        allow_partial_stake = False
+        print(f"🚩🚩🚩🚩🚩🚩{Fore.YELLOW}Base Slippage: {Fore.CYAN}{slippage_pct}{Style.RESET_ALL} | {Fore.RED}original: {Fore.MAGENTA}{original_tolerance}{Style.RESET_ALL} | {Fore.GREEN}new: {Fore.BLUE}{tolerance}{Style.RESET_ALL}")
+
         
         call = self.substrate.compose_call(
             call_module='SubtensorModule',
@@ -341,7 +411,7 @@ class RonProxy:
             keypair=self.proxy_wallet.coldkey,
         )
         receipt = self.substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
-        
+        print(receipt)
         is_success = receipt.is_success
         error_message = receipt.error_message
         return is_success, error_message
