@@ -166,7 +166,7 @@ class RonProxy:
         balance = self.subtensor.get_balance(
             address=self.delegator,
         )
-        
+        old_balance = balance
         # calculate base slippage
         stake_fee = self.subtensor.get_stake_add_fee(
             amount,
@@ -208,7 +208,12 @@ class RonProxy:
         )
         is_success, error_message = self._do_proxy_call(call)
         if is_success:
-            print(f"Stake added successfully")
+            new_balance = self.subtensor.get_balance(address=self.delegator)
+            if old_balance == new_balance:
+                print(f"Stake added successfully. New balance: {new_balance}")
+            else:
+                print(f"Failed")
+                
         else:
             print(f"Error: {error_message}")
 
@@ -306,6 +311,8 @@ class RonProxy:
             hotkey_ss58=hotkey,
             netuid=netuid,
         )
+        old_balance = balance
+        
         print(f"----Current alpha balance: {balance}")
         print(f"----rao amount to unstake: {amount.rao}")
         print(f"----slippage: {tolerance}")
@@ -338,7 +345,16 @@ class RonProxy:
         )
         is_success, error_message = self._do_proxy_call(call)
         if is_success:
-            print(f"Stake removed successfully")
+            new_balance = self.subtensor.get_stake(
+                coldkey_ss58=self.delegator,
+                hotkey_ss58=hotkey,
+                netuid=netuid,
+            )
+            if new_balance == old_balance:
+                print(f"Stake removed successfully. New balance: {new_balance}")
+            else:
+                print(f"Failed")
+                
         else:
             print(f"Error: {error_message}")
 
@@ -411,7 +427,6 @@ class RonProxy:
             keypair=self.proxy_wallet.coldkey,
         )
         receipt = self.substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
-        print(receipt)
         is_success = receipt.is_success
         error_message = receipt.error_message
         return is_success, error_message
