@@ -134,10 +134,10 @@ class RonProxy:
         pool = self.subtensor.subnet(netuid=netuid)
         base_price = pool.price.rao
         price_with_tolerance = base_price * (1 + tolerance)
-        
+        original_tolerance = 0
         if tolerance * 100 < slippage_pct_float:
+            original_tolerance = tolerance
             tolerance = slippage_pct_float / 100 * 1.5
-            print(f"New-Tolerance: {tolerance}")
         print(f"----validator to delegate to: {hotkey}")
         print(f"----Current balance: {balance}")
         print(f"----price: {base_price/100000}")
@@ -148,7 +148,7 @@ class RonProxy:
         print(wallet)
         
         
-        print(f"💢💢💢💢💢Base Slippage: {slippage_pct}")
+        print(f"🚩🚩🚩🚩🚩🚩Base Slippage: {slippage_pct} | original: {original_tolerance} | new: {tolerance}")
         
         call = self.substrate.compose_call(
             call_module='SubtensorModule',

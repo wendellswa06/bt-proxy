@@ -22,12 +22,11 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
-    # Remove stake command
+    # add stake command
     parser.add_argument('--coldkey', type=str, required=True, default='jjcom', help='Name of the wallet')
     parser.add_argument('--netuid', type=int, required=True, help='Network/subnet ID')
     parser.add_argument('--amount', type=float, default=0, help='Amount to unstake')
     parser.add_argument('--tol', type=float, default=0.005, help='tolerance limit to be used')
-    parser.add_argument('--all', action='store_true', help='Remove all staked balance')
     
     return parser
 
