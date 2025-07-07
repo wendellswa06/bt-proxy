@@ -83,7 +83,8 @@ You just need to send `call_data` to the approver so he can approve the transfer
 
 That's it!
 
-## Stake and unstake
+## 🎉New🎉 Stake and unstake
+You don't need .env anymore.
 Before stake and unstake, DELEGATOR in add_stake and remove_stake should be changed for your case.
 
 python add_stake --coldkey jjcom --netuid 39 --amount 1000 --tol 0.02
