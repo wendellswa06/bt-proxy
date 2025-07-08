@@ -90,6 +90,13 @@ Before stake and unstake, DELEGATOR in add_stake and remove_stake should be chan
 python add_stake --coldkey jjcom --netuid 39 --amount 1000 --tol 0.02
 python remove_stake --coldkey jjcom --netuid 39 --amount 1000 --tol 0.02
 
+## Get stake info from multisig wallets
+You can use Info.sh
+### Usage
+./Info jjcom
+This will show you multisig-jjpes-jjcom.
+Useful or not?
+
 # Buy me a coffee!
 
 Just follow me on GitHub and star this repo. Thank you!
