@@ -90,7 +90,7 @@ class RonProxy:
         received_amount -= stake_fee
 
         if received_amount < Balance.from_tao(0):
-            print_error("Not enough Alpha to pay the transaction fee.")
+            print("Not enough Alpha to pay the transaction fee.")
             raise ValueError
 
         if subnet_info.is_dynamic:
@@ -134,7 +134,7 @@ class RonProxy:
         amount_after_fee = amount - stake_fee
         
         if amount_after_fee < 0:
-            print_error("You don't have enough balance to cover the stake fee.")
+            print("You don't have enough balance to cover the stake fee.")
             raise ValueError()
         received_amount, _ = subnet_info.tao_to_alpha_with_slippage(amount_after_fee)
         print(received_amount)
@@ -278,25 +278,28 @@ class RonProxy:
             amount: Amount to unstake (if not using --all)
             all: Whether to unstake all available balance
         """
+        print("~~~~~~~~~~~~~~~~~~~")
+        print(amount)
         allow_partial_stake = False
+        
+        pool = self.subtensor.subnet(netuid=netuid)
+        base_price = pool.price.rao
+        # print(base_price / 10**9)
+        price_with_tolerance = base_price * (1 - tolerance)
         
         # calculate base slippage
         unstake_fee = self.subtensor.get_unstake_fee(
-            amount,
+            amount * base_price / 10**9,
             netuid,
             self.delegator,
             hotkey
         )
         
-        print(unstake_fee)
+        print(f"----unstake_fee: {unstake_fee}")
         subnet_info = self.subtensor.all_subnets()[netuid]
         received_amount, slippage_pct, slippage_pct_float = (
             self._calculate_slippage_remove(subnet_info, amount, unstake_fee)
-        )
-        
-        pool = self.subtensor.subnet(netuid=netuid)
-        base_price = pool.price.rao
-        price_with_tolerance = base_price * (1 - tolerance)
+        )              
         
         original_tolerance = 0
         if tolerance * 100 > slippage_pct_float * 5:
