@@ -446,6 +446,8 @@ class RonProxy:
             netuid: Network/subnet ID
             hotkey: Hotkey address
         """
+        self.proxy_wallet.unlock_coldkey()
+        print("Wallet is Unlocked")
         old_balance = self.subtensor.get_balance(
             address=self.delegator,
         )
