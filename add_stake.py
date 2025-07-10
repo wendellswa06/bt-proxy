@@ -27,6 +27,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument('--netuid', type=int, required=True, help='Network/subnet ID')
     parser.add_argument('--amount', type=float, default=0, help='Amount to unstake')
     parser.add_argument('--tol', type=float, default=0.005, help='tolerance limit to be used')
+    parser.add_argument('--all', action='store_true', help='time to not care about tolerance.')
     
     return parser
 
@@ -62,7 +63,8 @@ def main():
             netuid=args.netuid,
             hotkey=validator_hotkey,
             amount=Balance.from_tao(args.amount),
-            tolerance=args.tol
+            tolerance=args.tol,
+            all=args.all,
         )
         
     except Exception as e:
