@@ -11,7 +11,7 @@ RPC_ENDPOINTS = {
 }
 
 class RonProxy:
-    def __init__(self, proxy_wallet: str, network: str, delegator: str):
+    def __init__(self, proxy_wallet: str, network: str, delegator: str, hotkey: str = None):
         """
         Initialize the RonProxy object.
         
@@ -25,14 +25,17 @@ class RonProxy:
         
         self.network = network
         self.delegator = delegator
-        self.proxy_wallet = bt.wallet(name=proxy_wallet)
+        if hotkey:
+            self.proxy_wallet = bt.wallet(coldkey=proxy_wallet, hotkey=hotkey)
+        else:
+            self.proxy_wallet = bt.wallet(name=proxy_wallet)
         self.subtensor = bt.subtensor(network=network)
         self.substrate = SubstrateInterface(
             url=RPC_ENDPOINTS[self.network],
             ss58_format=42,
             type_registry_preset='substrate-node-template',
         )
-
+        
 
     def _add_stake(self, netuid: int, hotkey: str, amount: Balance) -> None:
         """
@@ -435,7 +438,70 @@ class RonProxy:
         else:
             print(f"Error: {error_message}")
 
-    
+    def register_miner(self, netuid: int):
+        """
+        Add stake to a subnet.
+        
+        Args:
+            netuid: Network/subnet ID
+            hotkey: Hotkey address
+        """
+        old_balance = self.subtensor.get_balance(
+            address=self.delegator,
+        )
+        call = self.substrate.compose_call(
+            call_module='SubtensorModule',
+            call_function='burned_register',
+            call_params={
+                "hotkey": self.proxy_wallet.hotkey.ss58_address,
+                "netuid": netuid,
+            },
+        )
+        
+        proxy_call = self.substrate.compose_call(
+            call_module='Proxy',
+            call_function='proxy',
+            call_params={
+                'real': self.delegator,
+                'force_proxy_type': 'Registration',
+                'call': call,
+            }
+        )
+        
+        extrinsic = self.substrate.create_signed_extrinsic(
+            call=proxy_call,
+            keypair=self.proxy_wallet.coldkey,
+        )
+        try:
+            receipt = self.substrate.submit_extrinsic(
+                extrinsic,
+                wait_for_inclusion=True,
+                wait_for_finalization=False,
+            )
+        except SubstrateRequestException as e:
+            error_message = e
+            if "Custom error: 8" in str(e):
+                error_message = f"""
+                    \n{e}: Price exceeded tolerance limit.
+                    Transaction rejected because partial unstaking is disabled.
+                    Either increase price tolerance or enable partial unstaking.
+                """
+            return False, error_message
+
+        print(f"Extrinsic: {receipt.get_extrinsic_identifier()}")
+
+        is_success = receipt.is_success
+        error_message = receipt.error_message
+        if is_success:
+            new_balance = self.subtensor.get_balance(address=self.delegator)
+            if old_balance != new_balance:
+                print(f"Registered successfully.")
+            else:
+                print(f"Failed")
+        else:
+            print(f"Error: {error_message}")
+        return is_success, error_message
+
     def _do_proxy_call(self, call) -> tuple[bool, str]:
         proxy_call = self.substrate.compose_call(
             call_module='Proxy',
