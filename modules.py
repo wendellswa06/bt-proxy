@@ -11,7 +11,7 @@ RPC_ENDPOINTS = {
 }
 
 class RonProxy:
-    def __init__(self, proxy_wallet: str, network: str, delegator: str, hotkey: str = None):
+    def __init__(self, proxy_wallet: str, network: str, delegator: str, proxy_hotkey: str = None):
         """
         Initialize the RonProxy object.
         
@@ -25,8 +25,8 @@ class RonProxy:
         
         self.network = network
         self.delegator = delegator
-        if hotkey:
-            self.proxy_wallet = bt.wallet(coldkey=proxy_wallet, hotkey=hotkey)
+        if proxy_hotkey:
+            self.proxy_wallet = bt.wallet(name=proxy_wallet, hotkey=proxy_hotkey)
         else:
             self.proxy_wallet = bt.wallet(name=proxy_wallet)
         self.subtensor = bt.subtensor(network=network)
@@ -494,7 +494,8 @@ class RonProxy:
         error_message = receipt.error_message
         if is_success:
             new_balance = self.subtensor.get_balance(address=self.delegator)
-            if old_balance != new_balance:
+            print(old_balance, new_balance)
+            if old_balance.tao != new_balance.tao:
                 print(f"Registered successfully.")
             else:
                 print(f"Failed")
